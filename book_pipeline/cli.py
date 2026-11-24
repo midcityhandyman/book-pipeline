@@ -16,8 +16,10 @@ from .validate import check_epub, describe_epub
 DEFAULT_MANUSCRIPT = "manuscript/sample.md"
 
 
-def build(manuscript: str | Path, out_dir: str | Path, pdf: bool = True, env=None, echo=print) -> int:
-    """Run the whole pipeline. Returns a process exit code."""
+def build(manuscript: str | Path, out_dir: str | Path, pdf: bool = True, env=None, echo=print,
+          to_pdf=html_to_pdf) -> int:
+    """Run the whole pipeline. Returns a process exit code: 0 built, 1 the EPUB
+    failed its check, 2 the manuscript could not be read, 3 the PDF converter failed."""
     out_dir = Path(out_dir)
     try:
         book = load_manuscript(manuscript)
@@ -46,12 +48,15 @@ def build(manuscript: str | Path, out_dir: str | Path, pdf: bool = True, env=Non
     echo(f"Print     {html_path.name} (page size {book.trim})")
 
     if pdf:
-        result = html_to_pdf(html_path, out_dir / f"{book.slug}.pdf", env=env)
+        result = to_pdf(html_path, out_dir / f"{book.slug}.pdf", env=env)
     else:
         result = PdfResult("skipped", "turned off with --no-pdf")
     name = result.path.name + " " if result.path else ""
     echo(f"PDF       {name}{result.status}: {result.detail}")
-    return 1 if problems else 0
+    if problems:
+        return 1
+    # A missing converter is a skip; one that ran and broke must not look like success.
+    return 3 if result.status == "failed" else 0
 
 
 def main(argv: list[str] | None = None) -> int:

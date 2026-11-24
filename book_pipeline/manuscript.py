@@ -14,6 +14,10 @@ _LANG = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
 _TRIM = re.compile(r"^\d+(\.\d+)?(in|mm|cm)\s+\d+(\.\d+)?(in|mm|cm)$")
 _FENCE = re.compile(r"^\s{0,3}(```|~~~)")
 _CHAPTER = re.compile(r"^#\s+(.+?)\s*#*\s*$")
+# Characters XML 1.0 forbids; word processors leave them behind (form feeds and the like).
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+# A word is a run of letters or digits in any script, with inner apostrophes.
+_WORD = re.compile(r"[^\W_]+(?:['’][^\W_]+)*")
 
 
 @dataclass
@@ -62,11 +66,14 @@ def _split_chapters(body: str) -> list[tuple[str, str]]:
     """Split on level one headings, ignoring any that sit inside a code fence."""
     chapters: list[tuple[str, list[str]]] = []
     preface: list[str] = []
-    in_fence = False
+    fence = None  # the marker that opened the current code fence, if any
     for line in body.splitlines():
-        if _FENCE.match(line):
-            in_fence = not in_fence
-        heading = None if in_fence else _CHAPTER.match(line)
+        marker = _FENCE.match(line)
+        if fence is None and marker:
+            fence = marker.group(1)
+        elif fence and line.strip().startswith(fence):
+            fence = None  # only the same marker closes it, as in markdown.py
+        heading = None if fence else _CHAPTER.match(line)
         if heading:
             chapters.append((heading.group(1), []))
         elif chapters:
@@ -79,7 +86,7 @@ def _split_chapters(body: str) -> list[tuple[str, str]]:
 
 
 def parse_manuscript(text: str) -> Book:
-    meta, body = split_front_matter(text)
+    meta, body = split_front_matter(_CONTROL.sub("", text))
     title = str(meta.get("title", "")).strip()
     if not title:
         raise ManuscriptError("front matter must give a title")
@@ -109,7 +116,7 @@ def parse_manuscript(text: str) -> Book:
     )
 
     for number, (chapter_title, source) in enumerate(_split_chapters(body), 1):
-        words = len(re.findall(r"[A-Za-z0-9']+", source))
+        words = len(_WORD.findall(source))
         book.chapters.append(Chapter(number, chapter_title, render_markdown(source), words))
     if not book.chapters:
         raise ManuscriptError("manuscript has no content; add a '# Chapter' heading and text")

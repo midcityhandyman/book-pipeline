@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 from book_pipeline import cli
 from book_pipeline.manuscript import load_manuscript
-from book_pipeline.pdf import command_for, find_converter, html_to_pdf
+from book_pipeline.pdf import PdfResult, command_for, find_converter, html_to_pdf
 from book_pipeline.print_html import render_print_html
 from book_pipeline.validate import check_epub
 
@@ -97,11 +97,19 @@ class CliTests(TempDirCase):
         self.assertTrue((self.tmp / "the-lamp-at-greywater-point.print.html").is_file())
         self.assertEqual(self.run_cli("check", str(epub))[0], 0)
 
-    def test_build_with_pdf_step_never_breaks_the_build(self):
+    def test_a_skipped_pdf_step_does_not_break_the_build(self):
         lines = []
         code = cli.build(SAMPLE, self.tmp, env={"BOOK_PDF_CONVERTER": "none"}, echo=lines.append)
         self.assertEqual(code, 0)
         self.assertTrue(lines[-1].startswith("PDF       skipped"))
+
+    def test_a_converter_that_runs_and_fails_gives_exit_code_3(self):
+        failed = lambda html, pdf, env=None: PdfResult("failed", "fake exited 1: boom")
+        lines = []
+        code = cli.build(SAMPLE, self.tmp, echo=lines.append, to_pdf=failed)
+        self.assertEqual(code, 3)
+        self.assertIn("Check     structure OK", lines)
+        self.assertEqual(lines[-1], "PDF       failed: fake exited 1: boom")
 
     def test_errors_give_exit_codes(self):
         self.assertEqual(self.run_cli("build", str(self.tmp / "missing.md"), "--out", str(self.tmp))[0], 2)

@@ -62,6 +62,17 @@ class MarkdownTests(unittest.TestCase):
     def test_emphasis_may_span_lines(self):
         self.assertEqual(render_markdown("*one\ntwo*"), "<p><em>one\ntwo</em></p>")
 
+    def test_link_urls_are_not_treated_as_emphasis(self):
+        html = render_inline("See [the *old* log](https://example.com/_logs_/*all*) and _this_.")
+        self.assertIn('<a href="https://example.com/_logs_/*all*">the <em>old</em> log</a>', html)
+        self.assertIn("<em>this</em>", html)
+        self.assert_well_formed(html)
+
+    def test_numbered_list_keeps_its_first_number(self):
+        self.assertEqual(render_markdown("3. three\n4. four"), '<ol start="3">\n<li>three</li>\n<li>four</li>\n</ol>')
+        # A paragraph that opens with a year reads as a list item; the year must survive.
+        self.assertIn('<ol start="1897">', render_markdown("1897. The lamp was lit."))
+
 
 class ManuscriptTests(unittest.TestCase):
     def test_chapters_split_on_level_one_headings(self):
@@ -74,6 +85,20 @@ class ManuscriptTests(unittest.TestCase):
         self.assertEqual(book.slug, "test-book")
         self.assertTrue(book.identifier.startswith("urn:uuid:"))
         self.assertEqual(book.identifier, parse_manuscript("---\ntitle: Test Book\n---\n# A\nb\n").identifier)
+
+    def test_other_fence_marker_inside_a_code_block_does_not_start_a_chapter(self):
+        book = parse_manuscript("---\ntitle: T\n---\n# One\n\n```\n~~~\n# still code\n```\n\n# Two\n\nText.\n")
+        self.assertEqual([c.title for c in book.chapters], ["One", "Two"])
+        self.assertIn("# still code", book.chapters[0].html)
+
+    def test_word_count_handles_accents_and_other_scripts(self):
+        book = parse_manuscript("---\ntitle: T\n---\n# One\n\nLa naïve fiancée didn't see море - 'twas dark.\n")
+        self.assertEqual(book.chapters[0].words, 8)
+
+    def test_control_characters_are_dropped_so_the_xhtml_stays_well_formed(self):
+        book = parse_manuscript("---\ntitle: Form\x0c Feed\n---\n# One\n\nPage one.\x0cPage two.\x01\n")
+        self.assertEqual(book.title, "Form Feed")
+        self.assertEqual(book.chapters[0].html, "<p>Page one.Page two.</p>")
 
     def test_rejects_bad_metadata(self):
         for header in ("author: Nobody", "title: T\ndate: last week", "title: T\nlanguage: 12", "title: T\ntrim: big"):

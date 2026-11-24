@@ -13,7 +13,7 @@ _FENCE = re.compile(r"^\s{0,3}(```|~~~)")
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 _RULE = re.compile(r"^\s*([-*_])(\s*\1){2,}\s*$")
 _BULLET = re.compile(r"^\s{0,3}[-*+]\s+(.*)$")
-_NUMBER = re.compile(r"^\s{0,3}\d+[.)]\s+(.*)$")
+_NUMBER = re.compile(r"^\s{0,3}(\d+)[.)]\s+(.*)$")
 _QUOTE = re.compile(r"^\s{0,3}>\s?(.*)$")
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
@@ -29,13 +29,23 @@ def render_inline(text: str) -> str:
         if index % 2:
             out.append(f"<code>{escape(part[1:-1])}</code>")
             continue
-        part = escape(part)
-        part = _LINK.sub(r'<a href="\2">\1</a>', part)
-        part = _STRONG.sub(r"<strong>\1</strong>", part)
-        part = _EM_STAR.sub(r"<em>\1</em>", part)
-        part = _EM_UNDER.sub(r"<em>\1</em>", part)
-        out.append(part)
+        # Links are set aside while emphasis runs, so a URL holding _ or *
+        # is never rewritten into markup inside the href attribute.
+        links: list[str] = []
+
+        def stash(match: re.Match) -> str:
+            links.append(f'<a href="{match.group(2)}">{_emphasis(match.group(1))}</a>')
+            return f"\x01{len(links) - 1}\x01"
+
+        part = _emphasis(_LINK.sub(stash, escape(part.replace("\x01", ""))))
+        out.append(re.sub("\x01(\\d+)\x01", lambda m: links[int(m.group(1))], part))
     return "".join(out)
+
+
+def _emphasis(text: str) -> str:
+    text = _STRONG.sub(r"<strong>\1</strong>", text)
+    text = _EM_STAR.sub(r"<em>\1</em>", text)
+    return _EM_UNDER.sub(r"<em>\1</em>", text)
 
 
 def _starts_block(line: str) -> bool:
@@ -103,14 +113,17 @@ def render_markdown(text: str) -> str:
             while i < len(lines) and lines[i].strip():
                 match = pattern.match(lines[i])
                 if match:
-                    items.append(match.group(1))
+                    items.append(match.group(match.lastindex))
                 elif lines[i].startswith((" ", "\t")):
                     items[-1] += " " + lines[i].strip()
                 else:
                     break
                 i += 1
             body = "\n".join(f"<li>{render_inline(item)}</li>" for item in items)
-            out.append(f"<{tag}>\n{body}\n</{tag}>")
+            # Keep the author's first number: a list that opens at 3 must not print as 1.
+            first = int(pattern.match(line).group(1)) if tag == "ol" else 1
+            start = f' start="{first}"' if first != 1 else ""
+            out.append(f"<{tag}{start}>\n{body}\n</{tag}>")
             break
         else:
             para = [line]
