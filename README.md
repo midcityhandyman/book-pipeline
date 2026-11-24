@@ -46,7 +46,7 @@ flowchart LR
 
 ## Run it
 
-Needs Python 3.9 or newer. Nothing to install.
+Needs Python 3.10 or newer. Nothing to install.
 
 ```
 python -m book_pipeline build
