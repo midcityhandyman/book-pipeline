@@ -1,0 +1,73 @@
+== 1. One command build (PDF converter set to none so the run is offline) ==
+$ python -m book_pipeline build manuscript/sample.md --out dist
+Book      The Lamp at Greywater Point by Anonymous (en, 1897-03-01)
+Chapters  4 (632 words)
+          1. Preface (28 words)
+          2. The Keeper (173 words)
+          3. The Storm (285 words)
+          4. The Morning (146 words)
+EPUB      the-lamp-at-greywater-point.epub
+          mimetype                     stored       20 bytes
+          META-INF/container.xml       deflated    252 bytes
+          OEBPS/content.opf            deflated   1627 bytes
+          OEBPS/nav.xhtml              deflated    581 bytes
+          OEBPS/toc.ncx                deflated    933 bytes
+          OEBPS/style.css              deflated    599 bytes
+          OEBPS/title.xhtml            deflated    570 bytes
+          OEBPS/chapter-001.xhtml      deflated    539 bytes
+          OEBPS/chapter-002.xhtml      deflated   1362 bytes
+          OEBPS/chapter-003.xhtml      deflated   2047 bytes
+          OEBPS/chapter-004.xhtml      deflated   1279 bytes
+Check     structure OK
+Print     the-lamp-at-greywater-point.print.html (page size 5.5in 8.5in)
+PDF       skipped: BOOK_PDF_CONVERTER is none
+exit code 0
+
+== 2. The package document inside the EPUB ==
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" xml:lang="en">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">urn:uuid:9b132461-bbf7-562b-bca9-f3f86fee2067</dc:identifier>
+    <dc:title>The Lamp at Greywater Point</dc:title>
+    <dc:language>en</dc:language>
+    <dc:creator>Anonymous</dc:creator>
+    <dc:date>1897-03-01</dc:date>
+    <dc:description>A short sample tale, written for this repository in the manner of an old coastal story.</dc:description>
+    <dc:rights>Sample text written for this project. No rights reserved.</dc:rights>
+    <meta property="dcterms:modified">1897-03-01T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="css" href="style.css" media-type="text/css"/>
+    <item id="title-page" href="title.xhtml" media-type="application/xhtml+xml"/>
+    <item id="ch001" href="chapter-001.xhtml" media-type="application/xhtml+xml"/>
+    <item id="ch002" href="chapter-002.xhtml" media-type="application/xhtml+xml"/>
+    <item id="ch003" href="chapter-003.xhtml" media-type="application/xhtml+xml"/>
+    <item id="ch004" href="chapter-004.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="title-page"/>
+    <itemref idref="nav"/>
+    <itemref idref="ch001"/>
+    <itemref idref="ch002"/>
+    <itemref idref="ch003"/>
+    <itemref idref="ch004"/>
+  </spine>
+</package>
+
+== 3. Page rules at the top of the print ready HTML ==
+@page {
+  size: 5.5in 8.5in;
+  margin: 0.75in 0.625in 0.875in;
+  @bottom-center { content: counter(page); font-size: 9pt; }
+}
+@page :left { margin-right: 0.75in; }
+@page :right { margin-left: 0.75in; }
+@page front { @bottom-center { content: none; } }
+
+== 4. Damage the EPUB and run the checker again ==
+$ python -m book_pipeline check broken.epub
+- mimetype must be stored without compression
+- manifest item ch003 points at missing file OEBPS/chapter-003.xhtml
+2 problem(s)

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "book-pipeline"
+version = "0.1.0"
+description = "Markdown manuscript to EPUB, print ready HTML and optional PDF, standard library only."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+book-pipeline = "book_pipeline.cli:main"
+
+[tool.setuptools]
+packages = ["book_pipeline"]
